@@ -6,6 +6,7 @@
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.Queue;
 
 /**
  * Your solution goes in this class.
@@ -93,65 +94,114 @@ public class Program1 extends AbstractProgram1 {
      *
      * @return A stable Matching.
      */
+
+    /*Time Complexity O(n)+*/
     @Override
     public Matching stableMarriageGaleShapley_residentoptimal(Matching marriage) {
 
         int m=marriage.getHospitalCount();
         int n=marriage.getResidentCount();
+
         ArrayList<ArrayList<Integer>> hospital_preference=marriage.getHospitalPreference();
         ArrayList<ArrayList<Integer>> resident_preference=marriage.getResidentPreference();
         ArrayList<Integer> hospitalSlots=marriage.getHospitalSlots();
         ArrayList<Integer> residentMatching=new ArrayList<Integer>();
-        arrlistInit(residentMatching,n,-1,false);
+        arrlistInit(residentMatching,n,-1,false);                                                  //O(n)
 
         /*At first the resident can propose to all his list.
          Each time a proposal is made the hospital is removed from the list*/
-        ArrayList<ArrayList<Integer>> hospitalsToProposeTo=resident_preference;
+
+        /*Trying to create a copy of the arraylist elements not copy of references*/
+        ArrayList<ArrayList<Integer>> hospitalsToProposeTo=new ArrayList<ArrayList<Integer>>();
+        for(int i=0;i<n;i++)                                                                    //O(n)
+            hospitalsToProposeTo.add(new ArrayList<Integer>(resident_preference.get(i)));
+
 
         /*list of residents that still can propose(free and hasn't proposed to every hospital)*/
-        ArrayList<Integer> proposing=new ArrayList<>();
-        arrlistInit(proposing,n,0,true);
+        ArrayList<Integer> proposing=new ArrayList<Integer>();
+        arrlistInit(proposing,n,0,true);                                                        //O(n)
 
 
-        ArrayList<ArrayList<Integer>> hospitalResidents=new ArrayList<>(m);
+        /*Keep track of each hospital matched residents*/
+        ArrayList<ArrayList<Integer>> hospitalResidents=new ArrayList<ArrayList<Integer>>(0);
+        for(int i=0;i<m;i++)
+            hospitalResidents.add(new ArrayList<Integer>(0));                               //O(m)
 
-        /*we enter the loop as long as some residents aren't done proposing yet O(mn)*/
+        /*Array list that holds the value of the lowest matched resident rank in each hospital
+        * so each time a resident propose to a full hospital, the resident is swapped with the least ranked rmatched resident */
+        ArrayList<Integer> lowestMatchedResidentRank=new ArrayList<Integer>();
+        arrlistInit(lowestMatchedResidentRank,m,-1,false);                              //O(m)
+
+        /*we enter the loop as long as some residents aren't done proposing to all hospitals yet O(mn*maximum no of spots)*/
         while(!proposing.isEmpty()) {
 
             for (int residentIndex = 0; residentIndex <proposing.size(); residentIndex++) {
-                int resident=proposing.get(residentIndex);
+                int resident=proposing.get(0);
                 int hospital = 0;
                 int hospitalIndex;
-                while (residentMatching.get(resident) != -1 ) {
-                    /*Get the first hospital in the resident list which he hasn't proposed to yet*/
-                    for (hospitalIndex = 0; hospitalIndex < hospitalsToProposeTo.get(resident).size(); hospitalIndex++) {
-                        hospital = hospitalsToProposeTo.get(resident).get(hospitalIndex);
+                    /*Get the first hospital in the resident list which he hasn't proposed to yet, breaks if he can't no longer propose if matched*/
+                    for (hospitalIndex = 0; hospitalIndex < hospitalsToProposeTo.get(resident).size() &&proposing.contains(resident); hospitalIndex++) {
+                        hospital = hospitalsToProposeTo.get(resident).get(0);
+                        int residentRank = hospital_preference.get(hospital).indexOf(resident);
+
                         /*hospital is full, loop through the matched residents and see if anyone can be kicked out*/
-                        if (hospitalSlots.get(hospital) <= 0) {
-                            ArrayList<Integer> matchedResidents = new ArrayList<Integer>();
-                            for (int matchedResidentIndex = 0; matchedResidentIndex < hospitalResidents.get(hospital).size(); matchedResidentIndex++) {
-                                int residentRank = hospital_preference.get(hospital).indexOf(resident);
-                                int matchedResident =hospitalResidents.get(hospital).get(matchedResidentIndex);
-                                int matchedResidentRank = resident_preference.get(resident).indexOf(matchedHospital);
-                            }
+                        if (hospitalResidents.get(hospital).size()==hospitalSlots.get(hospital)) {
 
+                            if(residentRank<lowestMatchedResidentRank.get(hospital)) {
+                                /*1.Replace in hospitalResidents
+                                 * 2.add/remove in resident-matching
+                                 * 3. check if matched resident still has hospitals to propose to (if yes, add to proposing)
+                                     */
+                                int lowestMatchedResident=hospital_preference.get(hospital).get(lowestMatchedResidentRank.get(hospital));
 
-                            if (matchedHospitalRank > hospitalRank)
-                                break;
-                            else {
-                                residentMatching.set(resident, hospital);
-                                hospitalSlots.set(hospital, hospitalSlots.get(hospital) - 1);
-                                hospitalSlots.set(matchedHospital, hospitalSlots.get(matchedHospital) + 1);
+                                    hospitalResidents.get(hospital).set( hospitalResidents.get(hospital).indexOf(lowestMatchedResident), resident);
+                                  residentMatching.set(lowestMatchedResident, -1);
+                                    residentMatching.set(resident, hospital);
+                                    proposing.remove(proposing.indexOf(resident));
+                                    if (!hospitalsToProposeTo.get(lowestMatchedResident).isEmpty()) {
+                                        proposing.add(lowestMatchedResident);
+                                    }
+
+                                    /*set the lowest rank
+                                    * TODO make it O(1)*/
+                                    int min=0;
+                                    for(int i=0;i<hospitalResidents.get(hospital).size();i++){
+                                        int tempRank=hospital_preference.get(hospital).indexOf(hospitalResidents.get(hospital).get(i));
+                                        if(tempRank>min)
+                                            min=tempRank;
                             }
-                        } else {
-                            residentMatching.set(resident, hospital);
-                            hospitalSlots.set(hospital, hospitalSlots.get(hospital) - 1);
+                            lowestMatchedResidentRank.set(hospital,min);
+
+                            }
                         }
-                    }
 
+                        /*If there is available spot*/
+                        else {
+                            /*1.add in hospitalResidents
+                             * 2.add in resident-matching
+                             * 3.set the lowest ranked resident
+                             * 4.Decrement hospital slots
+                             */
+
+                            /*Update the lowest rank*/
+                            if(residentRank>lowestMatchedResidentRank.get(hospital))
+                                lowestMatchedResidentRank.set(hospital,residentRank);
+                            hospitalResidents.get(hospital).add(resident);
+                            residentMatching.set(resident, hospital);
+                            proposing.remove(proposing.indexOf(resident));
+                        }
+
+                        /*1. Remove hospital from resident's hospitalsToProposeTo
+                        * 2. if resident is matched or proposed to every possible hospital, remove resident from proposing list
+                        */
+
+                        hospitalsToProposeTo.get(resident).remove(hospitalsToProposeTo.get(resident).indexOf(hospital));
+                        if(hospitalsToProposeTo.get(resident).size()==0&&proposing.contains(resident))
+                            proposing.remove(proposing.indexOf(resident));
+                    }
                 }
             }
-        }
+
         marriage.setResidentMatching(residentMatching);
         return marriage;
 
@@ -172,7 +222,7 @@ public class Program1 extends AbstractProgram1 {
      ArrayList<ArrayList<Integer>> resident_preference=marriage.getResidentPreference();
      ArrayList<Integer> hospitalSlots=marriage.getHospitalSlots();
      ArrayList<Integer> residentMatching=new ArrayList<Integer>();
-     arrlistInit(residentMatching,n,-1);
+     arrlistInit(residentMatching,n,-1,false);
      while(totalSlots>0)
      for(int hospital=0;hospital<m;hospital++) {
          int resident = 0;
@@ -193,6 +243,7 @@ public class Program1 extends AbstractProgram1 {
                      residentMatching.set(resident, hospital);
                      hospitalSlots.set(hospital, hospitalSlots.get(hospital) - 1);
                      hospitalSlots.set(matchedHospital, hospitalSlots.get(matchedHospital) + 1);
+                     totalSlots--;
                  }
              }
          }
