@@ -33,8 +33,13 @@ public class Program1 extends AbstractProgram1 {
         ArrayList<ArrayList<Integer>> hospital_preference = marriage.getHospitalPreference();
         ArrayList<ArrayList<Integer>> resident_preference = marriage.getResidentPreference();
 
+        /*To check later if all slots are filled */
+        int matchedResidents=0;
+
         /*loop through all residents*/
         for (int resident = 0; resident < residentsNumber; resident++) {
+            if(resident_matching.get(resident)!=-1)
+                matchedResidents++;
             int matchedHospital = resident_matching.get(resident);
 
             if (matchedHospital == -1)
@@ -52,6 +57,8 @@ public class Program1 extends AbstractProgram1 {
                     return false;
             }
         }
+        if(matchedResidents!=marriage.totalHospitalSlots())
+            return false;
         return true;
     }
 
@@ -72,7 +79,10 @@ public class Program1 extends AbstractProgram1 {
 
         Permutation p = new Permutation(residentsNumber, hospitalSlots);
         Matching matching;
+        int i=0;
         while ((matching = p.getNextMatching(marriage)) != null) {
+            i++;
+
             if (isStableMatching(matching)) {
                 stableMatchings.add(matching);
                 validPartners.add(matching.getResidentMatching());
